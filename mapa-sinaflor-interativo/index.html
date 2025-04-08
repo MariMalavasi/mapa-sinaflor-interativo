@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Consulta Base Sinaflor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-plugins/layer/vector/KML.js"></script>
+
+  <style>
+    #map { height: 100vh; }
+    .upload-box {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 6px;
+      border: 2px solid gray;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+  <div class="upload-box">
+    <input type="file" id="kml-upload" accept=".kml" />
+  </div>
+
+  <script>
+    const map = L.map('map').setView([-22.5, -46.5], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Função para carregar camadas GeoJSON locais
+    const loadLayer = (url, style, nome, popupField=null) => {
+      fetch(url)
+        .then(res => res.json())
+        .then(data => {
+          const layer = L.geoJSON(data, {
+            style: style,
+            onEachFeature: function (feature, layer) {
+              if (popupField && feature.properties[popupField]) {
+                layer.bindPopup(`<b>${nome}:</b> ${feature.properties[popupField]}`);
+              }
+            }
+          }).addTo(map);
+          layer.name = nome;
+        });
+    };
+
+    // Estilos
+    const estiloSub = { color: 'blue', weight: 1.5, fillOpacity: 0 };
+    const estiloUC = { color: 'darkgreen', fillColor: 'green', fillOpacity: 0.4 };
+    const estiloTI = { color: 'darkred', fillColor: 'orange', fillOpacity: 0.3 };
+    const estiloCAV = { color: 'purple', fillColor: 'purple', fillOpacity: 0.3 };
+
+    // Camadas carregadas do mesmo diretório
+    loadLayer('sub.geojson', estiloSub, 'Sub-bacias', 'DNS_NM');
+    loadLayer('uc.geojson', estiloUC, 'UC', 'NMUC');
+    loadLayer('ti.geojson', estiloTI, 'TI', 'terrai_nom');
+    loadLayer('cav.geojson', estiloCAV, 'Caverna', 'UF');
+
+    // Upload de KML
+    document.getElementById("kml-upload").addEventListener("change", function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const text = event.target.result;
+        const parser = new DOMParser();
+        const kml = parser.parseFromString(text, "text/xml");
+        const kmlLayer = new L.KML(kml);
+        map.addLayer(kmlLayer);
+        map.fitBounds(kmlLayer.getBounds());
+      };
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>
