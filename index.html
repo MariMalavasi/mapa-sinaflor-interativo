@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Consulta Base Sinaflor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Folium/Leaflet dependencies -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    
+    <!-- Leaflet Measure plugin -->
+    <script src="https://unpkg.com/leaflet-measure/dist/leaflet-measure.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-measure/dist/leaflet-measure.css"/>
+
+    <!-- Leaflet KML plugin -->
+    <script src="https://unpkg.com/leaflet-plugins/layer/vector/KML.js"></script>
+
+    <style>
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .upload-box {
+            background: white;
+            padding: 6px;
+            border: 2px solid gray;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <!-- Upload KML -->
+    <div class="leaflet-top leaflet-right upload-box" style="position: absolute; top: 10px; right: 10px; z-index: 1000;">
+        <input type="file" id="kml-upload" accept=".kml" />
+    </div>
+
+    <script>
+        var map = L.map('map').setView([-22.5, -46.5], 6);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Medidor
+        L.control.measure({
+            primaryLengthUnit: 'kilometers',
+            primaryAreaUnit: 'hectares'
+        }).addTo(map);
+
+        // KML Upload Handler
+        document.getElementById("kml-upload").addEventListener("change", function(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var text = e.target.result;
+                var parser = new DOMParser();
+                var kml = parser.parseFromString(text, "text/xml");
+                var track = new L.KML(kml);
+                map.addLayer(track);
+                map.fitBounds(track.getBounds());
+            };
+            reader.readAsText(file);
+        });
+    </script>
+</body>
+</html>
