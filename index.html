@@ -24,7 +24,7 @@
 <body>
 
 <div id="upload-kml">
-  <input type="file" id="fileInput" accept=".kml" />
+  <input type="file" id="fileInput" accept=".geojson, .kml" />
 </div>
 <div id="map"></div>
 
@@ -45,15 +45,14 @@
     "Sub-regiões": L.geoJSON(null),
   };
 
-  // Adiciona todas as camadas ao mapa por padrão
   for (const nome in camadas) {
     camadas[nome].addTo(map);
   }
 
-  // Layer control
-  L.control.layers(null, camadas).addTo(map);
+  // Criar o LayerControl e guardar referência
+  const layerControl = L.control.layers(null, camadas).addTo(map);
 
-  // Carregar arquivos GeoJSON
+  // Carregar arquivos GeoJSON locais
   fetch('uc.geojson')
     .then(res => res.json())
     .then(data => camadas["Unidades de Conservação"].addData(data));
@@ -70,22 +69,46 @@
     .then(res => res.json())
     .then(data => camadas["Sub-regiões"].addData(data));
 
-  // Upload de KML
+  // Upload misto: GeoJSON e KML
+  let camadaUpload = null;
+
   document.getElementById('fileInput').addEventListener('change', function (event) {
     const file = event.target.files[0];
-    if (file && file.name.endsWith('.kml')) {
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        const parser = new DOMParser();
-        const kml = parser.parseFromString(e.target.result, 'text/xml');
-        const geojson = toGeoJSON.kml(kml);
-        const kmlLayer = L.geoJSON(geojson).addTo(map);
-        map.fitBounds(kmlLayer.getBounds());
-      };
-      reader.readAsText(file);
-    } else {
-      alert('Por favor, selecione um arquivo KML válido.');
-    }
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+    const reader = new FileReader();
+
+    reader.onload = function (e) {
+      try {
+        if (camadaUpload) {
+          map.removeLayer(camadaUpload);
+          layerControl.removeLayer(camadaUpload);
+        }
+
+        if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
+          const geojson = JSON.parse(e.target.result);
+          camadaUpload = L.geoJSON(geojson).addTo(map);
+        } else if (fileName.endsWith('.kml')) {
+          const parser = new DOMParser();
+          const kml = parser.parseFromString(e.target.result, 'text/xml');
+          const geojson = toGeoJSON.kml(kml);
+          camadaUpload = L.geoJSON(geojson).addTo(map);
+        } else {
+          alert('Formato não suportado. Use .geojson ou .kml');
+          return;
+        }
+
+        map.fitBounds(camadaUpload.getBounds());
+        layerControl.addOverlay(camadaUpload, "Arquivo carregado");
+
+      } catch (error) {
+        alert("Erro ao processar o arquivo. Verifique se está em formato válido.");
+        console.error(error);
+      }
+    };
+
+    reader.readAsText(file);
   });
 </script>
 
