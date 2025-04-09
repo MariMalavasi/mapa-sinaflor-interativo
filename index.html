@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Mapa Interativo - KML + GeoJSON</title>
+  <title>Consulta Base Sinaflor</title>
   <style>
     #map {
       height: 100vh;
@@ -20,8 +20,11 @@
     }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-measure@3.3.0/dist/leaflet-measure.css" />
 </head>
 <body>
+
+<h2 style="text-align: center;">Consulta Base Sinaflor</h2>
 
 <div id="upload-kml">
   <input type="file" id="fileInput" accept=".geojson, .kml" />
@@ -29,47 +32,46 @@
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-measure@3.3.0/dist/leaflet-measure.min.js"></script>
 <script src="https://unpkg.com/togeojson@0.16.0/dist/togeojson.min.js"></script>
 
 <script>
-  const map = L.map('map').setView([-15, -55], 4);
+  const map = L.map('map').setView([-22.5, -46.5], 7);
+
+  // Base
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
-  // Grupos de camadas
-  const camadas = {
-    "Unidades de Conservação": L.geoJSON(null),
-    "Terras Indígenas": L.geoJSON(null),
-    "CAVs": L.geoJSON(null),
-    "Sub-regiões": L.geoJSON(null),
+  // Estilos
+  const estilos = {
+    "Sub-regiões": { color: "#0000FF", weight: 2, fill: false },
+    "Unidades de Conservação": { color: "#228B22", fillColor: "#228B22", fillOpacity: 0.4, weight: 1 },
+    "Terras Indígenas": { color: "#F4A460", fillColor: "#F4A460", fillOpacity: 0.5, weight: 1 },
+    "CAVs": { color: "#9932CC", fillColor: "#DDA0DD", fillOpacity: 0.4, weight: 1 }
   };
 
+  const camadas = {
+    "Sub-bacias": L.geoJSON(null, { style: estilos["Sub-regiões"] }),
+    "UCs - Sudeste": L.geoJSON(null, { style: estilos["Unidades de Conservação"] }),
+    "TI - Sudeste": L.geoJSON(null, { style: estilos["Terras Indígenas"] }),
+    "Áreas com Cavernas - Sudeste": L.geoJSON(null, { style: estilos["CAVs"] })
+  };
+
+  // LayerControl com todas ativas por padrão
   for (const nome in camadas) {
     camadas[nome].addTo(map);
   }
 
-  // Criar o LayerControl e guardar referência
   const layerControl = L.control.layers(null, camadas).addTo(map);
 
-  // Carregar arquivos GeoJSON locais
-  fetch('uc.geojson')
-    .then(res => res.json())
-    .then(data => camadas["Unidades de Conservação"].addData(data));
+  // Fetch dos GeoJSONs locais
+  fetch('sub.geojson').then(res => res.json()).then(data => camadas["Sub-bacias"].addData(data));
+  fetch('uc.geojson').then(res => res.json()).then(data => camadas["UCs - Sudeste"].addData(data));
+  fetch('ti.geojson').then(res => res.json()).then(data => camadas["TI - Sudeste"].addData(data));
+  fetch('cav.geojson').then(res => res.json()).then(data => camadas["Áreas com Cavernas - Sudeste"].addData(data));
 
-  fetch('ti.geojson')
-    .then(res => res.json())
-    .then(data => camadas["Terras Indígenas"].addData(data));
-
-  fetch('cav.geojson')
-    .then(res => res.json())
-    .then(data => camadas["CAVs"].addData(data));
-
-  fetch('sub.geojson')
-    .then(res => res.json())
-    .then(data => camadas["Sub-regiões"].addData(data));
-
-  // Upload misto: GeoJSON e KML
+  // Upload misto
   let camadaUpload = null;
 
   document.getElementById('fileInput').addEventListener('change', function (event) {
@@ -88,12 +90,16 @@
 
         if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
           const geojson = JSON.parse(e.target.result);
-          camadaUpload = L.geoJSON(geojson).addTo(map);
+          camadaUpload = L.geoJSON(geojson, {
+            style: { color: "#FF0000", weight: 2 }
+          }).addTo(map);
         } else if (fileName.endsWith('.kml')) {
           const parser = new DOMParser();
           const kml = parser.parseFromString(e.target.result, 'text/xml');
           const geojson = toGeoJSON.kml(kml);
-          camadaUpload = L.geoJSON(geojson).addTo(map);
+          camadaUpload = L.geoJSON(geojson, {
+            style: { color: "#FF0000", weight: 2 }
+          }).addTo(map);
         } else {
           alert('Formato não suportado. Use .geojson ou .kml');
           return;
@@ -110,6 +116,16 @@
 
     reader.readAsText(file);
   });
+
+  // MeasureControl
+  L.control.measure({
+    primaryLengthUnit: 'kilometers',
+    secondaryLengthUnit: 'meters',
+    primaryAreaUnit: 'hectares',
+    secondaryAreaUnit: 'sqmeters',
+    activeColor: '#FF0000',
+    completedColor: '#00FF00'
+  }).addTo(map);
 </script>
 
 </body>
